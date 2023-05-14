@@ -313,3 +313,71 @@ Check if the board is successfully booting from $\micro$SD card.
   ```
 
   
+
+## Linux Kernel Source Update
+
+1. Clone the latest stable kernel source from BBB official GitHub repository (https://github.com/beagleboard/linux)
+
+   * v4.14 is used for this project
+
+   * In the `workspace/source/` directory:
+
+     ```plain
+     git clone https://github.com/beagleboard/linux.git linux_bbb_4.14
+     ```
+
+2. Compile and generate the kernel image from the downloaded kernel image directory (`workspace/source/linux_bbb_4.14/`)
+
+   * Step 1:
+
+     ```plain
+     make ARCH=arm distlclean
+     ```
+
+     > Removes all the temporary folder, object files, images generated during the previous build. 
+     >
+     > Also, deletes the `.config` file if created previously.
+
+   * Step 2:
+
+     ```plain
+     make ARCH=arm bb.org_defconfig
+     ```
+
+     > Creates a `.confic` file by using default config file given by the vendor, which can be found in `workspace/source/linux_bbb_4.14/arch/arm/configs/`.
+
+   * Step 3 (Optional):
+
+     ```plain
+     make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig
+     ```
+
+     > Run this command only if you want to change some kernel settings before compilation.
+
+   * Step 4: Kernel code compilation
+
+     ```plain
+     make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- uImage dtbs LOADADDR=0x80008000 -j4
+     ```
+
+     > Creates a kernel image `uImage`.
+     >
+     > Compiles all device tree source files, and generates `dtbs`.
+
+   * Step 5:
+
+     ```plain
+     make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- modules -j4
+     ```
+
+     > Builds and generates in-tree loadable(M) kernel module (`.ko`).
+
+   * Step 6:
+
+     ```plain
+     sudo make ARCH=arm modules_install
+     ```
+
+     > Installs all the generated `.ko` files in the default path of the computer (`/lib/modules/<kernel_ver>`).
+
+3. Update the $\micro$SD with new kernel image and boot again
