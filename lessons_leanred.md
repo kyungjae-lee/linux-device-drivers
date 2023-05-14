@@ -318,7 +318,7 @@ Check if the board is successfully booting from $\micro$SD card.
 
 1. Clone the latest stable kernel source from BBB official GitHub repository (https://github.com/beagleboard/linux)
 
-   * v4.14 is used for this project
+   * v4.14 is used for this project ($\to$ 4.14 lacks the default config file `bb.org_defconfig`, so used 5.10 instead!)
 
    * In the `workspace/source/` directory:
 
@@ -344,7 +344,9 @@ Check if the board is successfully booting from $\micro$SD card.
      make ARCH=arm bb.org_defconfig
      ```
 
-     > Creates a `.confic` file by using default config file given by the vendor, which can be found in `workspace/source/linux_bbb_4.14/arch/arm/configs/`.
+     > Creates a `.config` file by using default config file given by the vendor (Default config file can be found in `workspace/source/linux_bbb_4.14/arch/arm/configs/`)
+
+     You may get an error complaining that `bb.org_defconfig` cannot be found. This is because you are on the main branch. To resolve this issue, check out to a branch that does contain the `bb.org_defconfig` file after cloning the repository. For example, `git checkout 5.10`.
 
    * Step 3 (Optional):
 
@@ -364,6 +366,14 @@ Check if the board is successfully booting from $\micro$SD card.
      >
      > Compiles all device tree source files, and generates `dtbs`.
 
+     For selecting options in the beginning, I hit 'y' and selected default ones.
+
+     `fatal error: mpc.h: No such file or directory` error may arise, which is caused by the lack of multiple precision complex floating-point library development package `libmpc-dev`. Resolve this error by running:
+
+     ```plain
+     sudo apt install libmpc-dev 
+     ```
+
    * Step 5:
 
      ```plain
@@ -379,5 +389,33 @@ Check if the board is successfully booting from $\micro$SD card.
      ```
 
      > Installs all the generated `.ko` files in the default path of the computer (`/lib/modules/<kernel_ver>`).
+     
+     Now, you should be able to see `/lib/modules/5.10.162/` directory.
 
-3. Update the $\micro$SD with new kernel image and boot again
+3. Update the $\micro$SD with the new kernel image, dtb and kernel modules
+
+   * To update the kernel image and dtb in the $\micro$SD:
+
+     * Copy `workspace/source/linnux_bbb_4.14/arch/arm/boot/uImage` to `/mdeia/klee/BOOT/` ($\micro$SD card).
+
+     * Copy `workspace/source/linnux_bbb_4.14/arch/arm/boot/dts/am335x-boneblack.dtb` to `/mdeia/klee/BOOT/` ($\micro$SD card). 
+
+       > Don't forget update dtb! It will hang the boot process at 'Starting kernel ...'.
+       >
+       > Select the dtb file whose name matches the one that is present in the `BOOT` partition of the $\micro$SD card.
+
+   * To update the kernel modules in the $\micro$SD:
+
+     * Copy newly installed kernel modules `/lib/modules/5.10.162/` to `/media/klee/ROOTFS/lib/modules/` ($\micro$SD card).
+
+     Run `sync` to flush left-over contents in the buffer to the media
+
+4. Boot the board from the updated $\micro$SD card. 
+
+5. Check the kernel version after login:
+
+   ```plain
+   uname -r
+   ```
+
+   It should display the updated kernel version. (`5.10.162` in my case)
