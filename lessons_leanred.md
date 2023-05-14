@@ -318,15 +318,15 @@ Check if the board is successfully booting from $\micro$SD card.
 
 1. Clone the latest stable kernel source from BBB official GitHub repository (https://github.com/beagleboard/linux)
 
-   * v4.14 is used for this project ($\to$ 4.14 lacks the default config file `bb.org_defconfig`, so used 5.10 instead!)
+   * 5.10 is used for this project ($\to$ 4.14 lacks the default config file `bb.org_defconfig`, so used 5.10 instead!)
 
    * In the `workspace/source/` directory:
 
      ```plain
-     git clone https://github.com/beagleboard/linux.git linux_bbb_4.14
+     git clone https://github.com/beagleboard/linux.git linux_bbb_5.10
      ```
 
-2. Compile and generate the kernel image from the downloaded kernel image directory (`workspace/source/linux_bbb_4.14/`)
+2. Compile and generate the kernel image from the downloaded kernel image directory (`workspace/source/linux_bbb_5.10/`)
 
    * Step 1:
 
@@ -344,7 +344,7 @@ Check if the board is successfully booting from $\micro$SD card.
      make ARCH=arm bb.org_defconfig
      ```
 
-     > Creates a `.config` file by using default config file given by the vendor (Default config file can be found in `workspace/source/linux_bbb_4.14/arch/arm/configs/`)
+     > Creates a `.config` file by using default config file given by the vendor (Default config file can be found in `workspace/source/linux_bbb_5.10/arch/arm/configs/`)
 
      You may get an error complaining that `bb.org_defconfig` cannot be found. This is because you are on the main branch. To resolve this issue, check out to a branch that does contain the `bb.org_defconfig` file after cloning the repository. For example, `git checkout 5.10`.
 
@@ -396,9 +396,9 @@ Check if the board is successfully booting from $\micro$SD card.
 
    * To update the kernel image and dtb in the $\micro$SD:
 
-     * Copy `workspace/source/linnux_bbb_4.14/arch/arm/boot/uImage` to `/mdeia/klee/BOOT/` ($\micro$SD card).
+     * Copy `workspace/source/linnux_bbb_5.10/arch/arm/boot/uImage` to `/mdeia/klee/BOOT/` ($\micro$SD card).
 
-     * Copy `workspace/source/linnux_bbb_4.14/arch/arm/boot/dts/am335x-boneblack.dtb` to `/mdeia/klee/BOOT/` ($\micro$SD card). 
+     * Copy `workspace/source/linnux_bbb_5.10/arch/arm/boot/dts/am335x-boneblack.dtb` to `/mdeia/klee/BOOT/` ($\micro$SD card). 
 
        > Don't forget update dtb! It will hang the boot process at 'Starting kernel ...'.
        >
