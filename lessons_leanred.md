@@ -744,3 +744,107 @@ Check if the board is successfully booting from $\micro$SD card.
   > ```plain
   > arm-linux-gnueabihf-objdump -d -j .modinfo helloworld.ko
   > ```
+
+
+
+## Building a Kernel Module
+
+* A kernel module can be built in 2 ways:
+
+  * Statically linked to the kernel image
+
+  * Dynamically loadble $\leftarrow$ our focus!
+
+    * **In-tree module** (Internal to the Linux kernel tree)
+
+      These modules are the ones approved by the kernel developers and maintainers that are already part of the Linux kernel source tree.
+
+    * **Out-of-tree module** (External to the Linux kernel tree)
+
+      A module written by a general user, which is not approved by the kernel authorities and may be buggy, to be built and linked to the running kernel, is called an out-of-tree module.
+
+      This method taints the kernel. Kernel issues a warning saying that out-of-tree module has been loaded. You can safely ignore the warning!
+
+* Building a kernel module (out-of-tree)
+
+  * Modules are built using "**kbuild**" which is the build system used by the Linux kernel.
+
+  * Modules must use "kbuild" to stay compatible with changes in the build infrastructure and to pick up the right flags to GCC. Also, the "kbuild" will automatically choose the right flags for you.
+
+  * To build external modules, you MUST have a prebuilt kernel source available that contains the configuration and header files used in the build. This is because the modules are linked to the object files found in the kernel source tree.
+
+    You cannot compile your module on one Linux kernel version and load it into the system running on a different kernel version. The module load may not be successful, and even if it is, you'll still encounter run-time issues with the symbols.
+
+    [!] Rule of thumb: Have a prebuilt Linux kernel source tree on your machine and build your module on it.
+
+    Two ways to obtain a prebuilt kernel version:
+
+    * Download kernel from your distributor and build it by yourself
+    * Install the Linux-headers- of the target Linux kernel
+
+  * This ensures that as the developer changes the kernel configuration, his custom driver is automatically rebuilt with the correct kernel configuration.
+
+  * Reference: https://www.kernel.org/doc/Documentation/kbuild/modules.txt
+
+* Command to build an external module:
+
+  ```plain
+  make -C <path_to_linux_kernel_source_tree> M=<path_to_your_module> [target]
+  ```
+
+  > 1. `make -C <path_to_linux_kernel_source_tree>` switch will trigger the **top-level Makefile** of the Linux kernel source tree.
+  >
+  >    It will enter `<path_to_linux_kernel_source_tree>` and run the top-level Makefile. At this time, kbuild rules (e.g., compiler switches, dependency list, version string) will be utilized to build the kernel modules.
+  >
+  > 2. `M=<path_to_your_module>` will direct the top-level Makefile to trigger the **local Makefile** in your working directory where the external modules to be compiled are stored.
+
+  In Makefile syntax, it can be re-written as:
+
+  ```makefile
+  make -C $KDIR M=$PWD [Targets]
+  ```
+
+  > * `-C $KDIR` - The directory where the kernel source is located. `make` will change it to the specified directory when executing and will change it back when finished.
+  >
+  > * `M=$PWD` - Informs kbuild that an external module is being built. The value given to `M` is the absolute path to the directory where the external module (kbuild file) is located.
+  >
+  > * `[Targets]`
+  >
+  >   * `modules` - The default target for external modules. It has the same functionality as if no target was specified.
+  >
+  >   * `modules_install` - Install the external module(s). The default location is `/lib/modules/<kernel_release>/extra/`, but a prefix may be added with `INSTALL_MOD_PATH`.
+  >
+  >   * `clean` - Remove all generated files in the module directory only
+  >
+  >   * `help` - List the available targets for external modules
+
+* Creating a local Makefile - In the local Makefile you should define a kbuild variable as below:
+
+  ```makefile
+  obj-<X> := <module_name>.o
+  ```
+
+  > `obj-<X>` is the kbuild variable and `X` takes one of the following values:
+  >
+  > * `X = n` - Do not compile the module
+  > * `X = y` - Compile the module and link with kernel image
+  > * `X = m` - Compile as dynamically loadable kernel module
+
+  Example:
+
+  ```makefile
+  # Makefile
+  obj-m := main.o
+  ```
+
+  > The kbuild system will build `main.o` from `main.c`, and after linking the kernel module `main.ko` will be produced.
+
+### Exercise
+
+* Check the prebuilt kernel version by running `uname -r` and build your own kernel module.
+
+  ```plain
+  klee@T480s:~/linux-device-drivers/workspace/custom_drivers/00_hello_world$ make -C /lib/modules/5.19.0-41-generic/build/ M=$PWD modules
+  ```
+
+  
