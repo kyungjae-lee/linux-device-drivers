@@ -575,13 +575,14 @@ Check if the board is successfully booting from $\micro$SD card.
 
 * This section lists the header files to include.
 
-* Every kernel module must include the following header file:
-
-  ```plain
+  ```c
+  /*****************************************************************************************
+   * INCLUDE (Inclusion of the necessary header files)
+   ****************************************************************************************/
   #include <linux/module.h>
   ```
 
-  > Provides various macros for writing kernel modules.
+  > Every kernel module must include the header file `linux/module.h`. It provides various macros for writing kernel modules.
 
 * All the kernel header files can be found in the kernel source tree `LINUX_SRC/include/linux`.
 
@@ -639,18 +640,27 @@ Check if the board is successfully booting from $\micro$SD card.
 * Example:
 
   ```c
+  /*****************************************************************************************
+   * CODE (Implementation of what the module does)
+   ****************************************************************************************/
+  
   /* Module initialization entry point */
-  static int __init my_kernel_module_init(void)
+  static int __init helloworld_init(void)
   {
       /* Kernel's printf */
       pr_info("Hello world!\n");
+          /* 'pr_info()' is a wrapper function for 'printk()'. */
+  
       return 0;
+          /* Module load will be successful only when the module init entry
+             point function returns 0. If it returns non-zero value for any reason,
+             loading the module will be unsuccessful. */
   }
   
   /* Module clean-up entry point */
-  static void __exit my_kernel_module_exit(void)
+  static void __exit helloworld_exit(void)
   {
-      pr_info("Good bye world\n");
+      pr_info("Good bye world!\n");
   }
   ```
 
@@ -693,9 +703,11 @@ Check if the board is successfully booting from $\micro$SD card.
 * Module entry point registration example:
 
   ```c
-  /* Registration of entry points with kernel */
-  module_init(my_kernel_module_init);
-  module_exit(my_kernel_module_init);
+  /*****************************************************************************************
+   * REGISTRATION (Registration of entry points with kernel)
+   ****************************************************************************************/
+  module_init(helloworld_init);
+  module_init(helloworld_exit);
   ```
 
   > These are the macros used to register the module's init and clean-up functions with the kernel.
@@ -710,10 +722,13 @@ Check if the board is successfully booting from $\micro$SD card.
 * Module description example:
 
   ```c
-  /* Descriptive information about the module */
-  MODULE_LICENSE("GPL");	/* This module adheres to the GPL licensing */
+  /*****************************************************************************************
+   * MODULE DESCRIPTION (Descriptive information about the module)
+   ****************************************************************************************/
+  MODULE_LICENSE("GPL");  /* This module adheres to the GPL licensing */
   MODULE_AUTHOR("Kyungjae Lee");
-  MODULE_DESCRIPTION("A kernel module to print some messages.");
+  MODULE_DESCRIPTION("A simple kernel module to pring Hello World");
+  MODULE_INFO(board, "BeagleBone Black REV A5");
   ```
 
   > `MODULE_LICENSE` is a macro used by the kernel module to announce its license type. If you load a module whose license parameter is a non-GPL(General Public License), then the kernel triggers warning of being tainted. This is the way of the kernel letting the users and developers know it's a non-free license based module.
@@ -723,12 +738,6 @@ Check if the board is successfully booting from $\micro$SD card.
   > The declared module license is also used to decide whether a given module can have access to the small number of "GPL-only" symbols in the kernel.
   >
   > Go to `include/linux/module.h` to find out what are the allowed parameters which can be used with this macro to load the module without tainting the kernel.
-
-  ```c
-  MODULE_INFO(name, "string");
-  ```
-
-  > For example, `MODULE_INFO(board, "Beaglebone Black");`
   >
   > You can see the module information by running the following command on the `.ko` file:
   >
