@@ -325,13 +325,15 @@ Check if the board is successfully booting from $\micro$SD card.
      ```plain
      git clone https://github.com/beagleboard/linux.git linux_bbb_5.10
      ```
+     
+   * `cd` to `linux_bbb_5.10/` and run `git checkout 5.10`.
 
 2. Compile and generate the kernel image from the downloaded kernel image directory (`workspace/source/linux_bbb_5.10/`)
 
    * Step 1:
 
      ```plain
-     make ARCH=arm distlclean
+     make ARCH=arm distclean
      ```
 
      > Removes all the temporary folder, object files, images generated during the previous build. 
@@ -356,7 +358,7 @@ Check if the board is successfully booting from $\micro$SD card.
 
      > Run this command only if you want to change some kernel settings before compilation.
 
-   * Step 4: Kernel code compilation
+   * Step 4: Compile kernel source
 
      ```plain
      make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- uImage dtbs LOADADDR=0x80008000 -j4
@@ -374,7 +376,7 @@ Check if the board is successfully booting from $\micro$SD card.
      sudo apt install libmpc-dev 
      ```
 
-   * Step 5:
+   * Step 5: Build kernel modules
 
      ```plain
      make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- modules -j4
@@ -419,3 +421,100 @@ Check if the board is successfully booting from $\micro$SD card.
    ```
 
    It should display the updated kernel version. (`5.10.162` in my case)
+
+
+
+## Enabling Internet Over USB
+
+* Internet over USB
+  * BBB board can communicate with the Internet over the USB cable by sharing the host PC's internet connection.
+  * A separate Ethernet cable is not necessary for the BBB board's internet connection.
+  * The required drivers are enabled by default in the kernel and loaded when Linux boots on the BBB board.
+  * But, you need to enable the internet sharing feature on your host PC to use this service.
+
+### Target Settings
+
+1. First run `ifconfig` and see if your system recognizes `usb0` interface.
+
+   If `usb0` interface does not show up, reboot the board and check again.
+
+   If it still does not show up, execute the following commands and check again:
+
+   ```plain
+   sudo modprobe g_ether
+   sudo ifconfig usb0 192.168.7.2 up
+   ifconfig
+   ```
+
+   At this point you'll be able to `ping 192.168.7.1` (to host), but not `ping www.google.com` (to the Internet).
+
+2. Add name server address in `/etc/resolv.conf`:
+
+   ```plain
+   nameserver 8.8.8.8
+   nameserver 8.8.4.4
+   ```
+
+3. Add name server address in `/etc/network/interfaces`
+
+   ```plain
+   iface usb0 inet static
+   	address 192.168.7.2
+   	netmask 255.255.255.252
+   	network 192.168.7.0
+   	gateway 192.168.7.1
+   	dns-nameservers 8.8.8.8		<-- add this
+   	dns-nameservers 8.8.4.4		<-- add this
+   ```
+
+4. Add default gateway address by running the following command:
+
+   ```plain
+   route add default gw 192.168.7.1
+   ```
+
+   > We are using the host PC as the default gateway.
+
+   Whenever rebooting the board, you need to run this command to get Internet connection. For simple SSH connection to the host PC, running this command is not required.
+
+### Host Settings
+
+1. Run the following commands:
+
+   ```plain
+   sudo iptables --table nat --append POSTROUTING --out-interface <wifi_interface> -j MASQUERADE
+   ```
+
+   > `wlp61s0` - Network interface name. Your primary connection to the network could be wireless or wired. You must use the name as listed by the command `ifconfig`.
+
+   ```plain
+   sudo iptables --append FORWARD --in-interface <ethernet_interface_to_share_with> -j ACCEPT
+   ```
+
+   > `<wifi_interface>` - wlp61s0
+   >
+   > `<ethernet_interface_to_share_with>` - enx6ef0cf91ad0a (whose IP is `192.168.7.1`) $\to$ This name changed on every booting. Check carefully!
+
+   ```plain
+   sudo -s
+   echo 1 > /proc/sys/net/ipv4/ip_forward
+   ```
+
+   > Simply running `sudo echo 1 > /proc/sys/net/ipv4/ip_forward` won't work!
+
+   Whenever rebooting the board, you need to run these commands. So, may be a good idea to create a short script and execute it on every reboot. For example:
+
+   ```plain
+   #!/bin/bash
+   ##To run this script do
+   ##1. chmod +x usbnet.sh 
+   ##2. ./usbnet.sh 
+   iptables --table nat --append POSTROUTING --out-interface <wifi_interface> -j MASQUERADE
+   iptables --append FORWARD --in-interface <ethernet_interface_to_share_with> -j ACCEPT
+   echo 1 > /proc/sys/net/ipv4/ip_forward
+   ```
+
+   > Make sure th replace `<wifi_interface>` and `<ethernet_interface_to_share_with>` with the real names.
+
+
+
