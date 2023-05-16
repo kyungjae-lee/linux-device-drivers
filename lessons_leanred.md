@@ -40,7 +40,9 @@
 
   * To cross-compile the Linux kernel, Linux application, and kernel modules to ARM Cortex-Ax architecture, cross-compiler is necessary.
   * The SoC AM335x from TI is based on ARM Cortex-A8 processor of ARMv7 architecture.
-  * Download the cross-compiler - `gcc-linaro-12.2.1-2023.04-x86_64_arm-linux-gnueabihf.tar.xz` (https://snapshots.linaro.org/gnu-toolchain/12.2-2023.04-1/arm-linux-gnueabihf/)
+  * Download the cross-compiler - `gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf` (https://releases.linaro.org/components/toolchain/binaries/7.5-2019.12/arm-linux-gnueabihf/)
+    * Older versions: https://releases.linaro.org/components/toolchain/binaries/
+    * Newer versions: https://snapshots.linaro.org/gnu-toolchain/
 
 * Add the toochain binary path to the PATH variable (`.bashrc` in home directory)
 
@@ -54,12 +56,14 @@
      export PATH=$PATH:<path_to_toolchain_binaries>
      ```
 
-     Or simply do
+     > e.g., `export PATH=$PATH:/home/klee/linux-device-drivers/workspace/downloads/gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf/bin`
 
+     Or simply do
+  
      ```plain
      echo "export PATH=$PATH:<path_to_toolchain_binaries>" > ~/.bashrc
      ```
-
+  
   4. In the terminal, type `arm` and hit `tab` to see if the system recognizes the binaries.
 
 
@@ -316,19 +320,19 @@ Check if the board is successfully booting from $\micro$SD card.
 
 ## Linux Kernel Source Update
 
-1. Clone the latest stable kernel source from BBB official GitHub repository (https://github.com/beagleboard/linux)
+1. Clone the kernel source from BBB official GitHub repository (https://github.com/beagleboard/linux) $\to$ This will clone the master branch of the repository. You will need to checkout a specific branch (i.e., kernel source version).
 
-   * 5.10 is used for this project ($\to$ 4.14 lacks the default config file `bb.org_defconfig`, so used 5.10 instead!)
+   * 4.14 is used for this project
 
-   * In the `workspace/source/` directory:
+     In the `workspace/source/` directory:
 
      ```plain
-     git clone https://github.com/beagleboard/linux.git linux_bbb_5.10
+     git clone https://github.com/beagleboard/linux.git linux_bbb_4.14
      ```
-     
-   * `cd` to `linux_bbb_5.10/` and run `git checkout 5.10`.
+   
+   * `cd` to `linux_bbb_4.14/` and run `git checkout 4.14`.
 
-2. Compile and generate the kernel image from the downloaded kernel image directory (`workspace/source/linux_bbb_5.10/`)
+2. Compile and generate the kernel image from the downloaded kernel image directory (`workspace/source/linux_bbb_4.14/`)
 
    * Step 1:
 
@@ -346,9 +350,7 @@ Check if the board is successfully booting from $\micro$SD card.
      make ARCH=arm bb.org_defconfig
      ```
 
-     > Creates a `.config` file by using default config file given by the vendor (Default config file can be found in `workspace/source/linux_bbb_5.10/arch/arm/configs/`)
-
-     You may get an error complaining that `bb.org_defconfig` cannot be found. This is because you are on the main branch. To resolve this issue, check out to a branch that does contain the `bb.org_defconfig` file after cloning the repository. For example, `git checkout 5.10`.
+     > Creates a `.config` file by using default config file given by the vendor (Default config file can be found in `workspace/source/linux_bbb_4.14/arch/arm/configs/`)
 
    * Step 3 (Optional):
 
@@ -368,7 +370,11 @@ Check if the board is successfully booting from $\micro$SD card.
      >
      > Compiles all device tree source files, and generates `dtbs`.
 
-     For selecting options in the beginning, I hit 'y' and selected default ones.
+     `#error New address family defined, please update secclass_map.` can be resolved by:
+
+     1. `scripts/selinux/genheaders/genheaders.c` $\to$ comment out `#include <sys/socket/h>`
+     2. `scrpts/selinux/mdp/mdp.c` $\to$ comment out `#include <sys/socket.h>`
+     3. `security/selinux/include/classmap.h` $\to$ add `#include <linux/socket.h>`
 
      `fatal error: mpc.h: No such file or directory` error may arise, which is caused by the lack of multiple precision complex floating-point library development package `libmpc-dev`. Resolve this error by running:
 
@@ -392,7 +398,7 @@ Check if the board is successfully booting from $\micro$SD card.
 
      > Installs all the generated `.ko` files in the default path of the computer (`/lib/modules/<kernel_ver>`).
      
-     Now, you should be able to see `/lib/modules/5.10.162/` directory.
+     Now, you should be able to see `/lib/modules/4.14.108+/` directory.
 
 3. Update the $\micro$SD with the new kernel image, dtb and kernel modules
 
@@ -408,7 +414,7 @@ Check if the board is successfully booting from $\micro$SD card.
 
    * To update the kernel modules in the $\micro$SD:
 
-     * Copy newly installed kernel modules `/lib/modules/5.10.162/` to `/media/klee/ROOTFS/lib/modules/` ($\micro$SD card).
+     * Copy newly installed kernel modules `/lib/modules/4.14.108+/` to `/media/klee/ROOTFS/lib/modules/` ($\micro$SD card).
 
      Run `sync` to flush left-over contents in the buffer to the media
 
@@ -420,7 +426,7 @@ Check if the board is successfully booting from $\micro$SD card.
    uname -r
    ```
 
-   It should display the updated kernel version. (`5.10.162` in my case)
+   It should display the updated kernel version. (`4.14.108+` in my case)
 
 
 
@@ -470,7 +476,7 @@ Check if the board is successfully booting from $\micro$SD card.
 4. Add default gateway address by running the following command:
 
    ```plain
-   route add default gw 192.168.7.1
+   sudo route add default gw 192.168.7.1
    ```
 
    > We are using the host PC as the default gateway.
@@ -482,26 +488,22 @@ Check if the board is successfully booting from $\micro$SD card.
 1. Run the following commands:
 
    ```plain
-   sudo iptables --table nat --append POSTROUTING --out-interface <wifi_interface> -j MASQUERADE
+   sudo iptables --table nat --append POSTROUTING --out-interface <network_interface_name> -j MASQUERADE
    ```
 
-   > `wlp61s0` - Network interface name. Your primary connection to the network could be wireless or wired. You must use the name as listed by the command `ifconfig`.
+   > `<network_interface_name>` - Your primary connection to the network could be wireless or wired. You must use the name as listed by the command `ifconfig`. (In my case `wlp61s0`)
 
    ```plain
-   sudo iptables --append FORWARD --in-interface <ethernet_interface_to_share_with> -j ACCEPT
+   sudo iptables --append FORWARD --in-interface <network_interface_name> -j ACCEPT
    ```
-
-   > `<wifi_interface>` - wlp61s0
-   >
-   > `<ethernet_interface_to_share_with>` - enx6ef0cf91ad0a (whose IP is `192.168.7.1`) $\to$ This name changed on every booting. Check carefully!
 
    ```plain
    sudo -s
    echo 1 > /proc/sys/net/ipv4/ip_forward
    ```
-
+   
    > Simply running `sudo echo 1 > /proc/sys/net/ipv4/ip_forward` won't work!
-
+   
    Whenever rebooting the board, you need to run these commands. So, may be a good idea to create a short script and execute it on every reboot. For example:
 
    ```plain
@@ -509,12 +511,12 @@ Check if the board is successfully booting from $\micro$SD card.
    ##To run this script do
    ##1. chmod +x usbnet.sh 
    ##2. ./usbnet.sh 
-   iptables --table nat --append POSTROUTING --out-interface <wifi_interface> -j MASQUERADE
-   iptables --append FORWARD --in-interface <ethernet_interface_to_share_with> -j ACCEPT
+   iptables --table nat --append POSTROUTING --out-interface <network_interface_name> -j MASQUERADE
+   iptables --append FORWARD --in-interface <network_interface_name> -j ACCEPT
    echo 1 > /proc/sys/net/ipv4/ip_forward
    ```
-
-   > Make sure th replace `<wifi_interface>` and `<ethernet_interface_to_share_with>` with the real names.
+   
+   > Make sure th replace `<network_interface_name>` with a real name.
 
 
 
@@ -786,6 +788,8 @@ Check if the board is successfully booting from $\micro$SD card.
 
   * Reference: https://www.kernel.org/doc/Documentation/kbuild/modules.txt
 
+### Building an Out-of-Tree Module
+
 * Command to build an external module:
 
   ```plain
@@ -839,12 +843,79 @@ Check if the board is successfully booting from $\micro$SD card.
 
   > The kbuild system will build `main.o` from `main.c`, and after linking the kernel module `main.ko` will be produced.
 
-### Exercise
+### Exercise 1 (Host - Host)
 
 * Check the prebuilt kernel version by running `uname -r` and build your own kernel module.
 
+  In the `00_hello_world/` directory, run the following command to build the LKM against the host PC's Linux kernel version:
+  
   ```plain
-  klee@T480s:~/linux-device-drivers/workspace/custom_drivers/00_hello_world$ make -C /lib/modules/5.19.0-41-generic/build/ M=$PWD modules
+  make -C /lib/modules/5.19.0-41-generic/build/ M=$PWD modules
+  ```
+  
+  Then, insert the LKM into the running kernel:
+  
+  ```plain
+  sudo insmod main.ko
+  ```
+  
+  Run `dmesg` to check if the LKM has successfully printed `Hello world!`.
+  
+  Remove the LKM from the running kernel:
+  
+  ```plain
+  sudo rmmod main.ko
+  ```
+  
+  Run `dmesg` again to check if the LKM has successfully printed `Good bye world!`.
+
+* Note
+  * At first, `sudo insmod main.ko` did not work on my PC. This turned out to be due to the "Secure Boot" option that was enabled on my PC. Disabling this option in the BIOS resolved this issue.
+  * Although both `Hello world!` and `Good bye world!` showed up, the warning messages did not appear at insertion. Need to check why!
+
+### Exercise 2 (Host - Target : Cross-Compile)
+
+* In the file `/etc/sudoers` append `export PATH=$PATH:<path_to_toolchain_binaries>` to the `secure_path`. For example,
+
+  ```plain
+  Defaults        env_reset
+  Defaults        mail_badpass
+  Defaults        secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin:export PATH=$PATH:/home/klee/linux-device-drivers/workspace/downloads/gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf/bin"
+  Defaults        use_pty
+  ```
+
+* In the `00_hello_world/` directory where the LKM is located, run the following command to build the LKM against the target's Linux kernel version:
+
+  ```plain
+  sudo make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -C /home/klee/repos/linux-device-drivers/workspace/source/linux_bbb_4.14/ M=$PWD modules
+  ```
+
+  > You are **cross-compiling** this time!
+
+  You can run `file main.ko`, `modinfo main.ko`, or `arm-linux-gnueabihf-objdump -h main.ko` to check if the build has been successful.
+
+* Transfer the built module to the target
+
+  ```plain
+  scp main.ko debian@192.168.7.2:/home/debian/drivers
+  ```
+
+  > You'll be asked to enter the PW of the target, and then the file will be transferred.
+
+* Insert the LKM into the running kernel:
+
+  ```plain
+  sudo insmod main.ko
+  ```
+
+  > It will print the message right on the creen.
+
+  Another way to see the message is to run `dmesg | tail`.
+
+* Remove the LKM from the running kernel:
+
+  ```
+  sudo rmmod main.ko
   ```
 
   
