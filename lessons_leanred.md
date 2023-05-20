@@ -1243,3 +1243,339 @@ Check if the board is successfully booting from $\micro$SD card.
   ```c
   pr_info("Kernel version 4.14\n");
   ```
+
+
+
+## Device Driver
+
+### Overview
+
+* Linux device drivers are software components that enable the Linux operating system to communicate with and control specific hardware devices. Device drivers also expose interfaces to the user applications so that those applications can interact with the hardware device.
+* They act as a bridge between the hardware and the operating system, providing a standardized interface for applications and the kernel to interact with the device.
+* Device drivers are typically written as kernel modules, which are loadable pieces of code that extend the functionality of the Linux kernel.
+* They abstract away the low-level details of the hardware, allowing applications to access the device's functionality without needing to know the specific implementation details.
+* Linux device drivers are essential for supporting a wide range of hardware devices, such as network adapters, sound cards, graphic cards, storage devices, and input devices.
+* Writing a Linux device driver requires knowledge of the Linux kernel internals, device-specific protocols, and programming in C or another supported language.
+
+* Types of Linux device drivers
+
+  * Character device drivers (Char device - RTC, keyboard, sensors, etc.)
+  * Block device drivers (Storage devices - SDMMC, EEPROM, Flash, hard disk)
+
+  * Network device drivers (Network devices - Ethernet, wifi, bluetooth)
+
+* Device files
+
+  * Devices are handled as a file in a UNIX/Linux systems.
+
+  * A device file is a special file or a node which gets populated in `/dev` directory during the kernel boot-time or device/driver hot plug events.
+
+  * By using a device file, a user application can communicate with a driver.
+
+  * Device files are managed as part of VFS subsystem of the kernel.
+
+  * Device driver should trigger the creation of device file.
+
+    
+
+    <img src="./img/device-files.png" alt="device-files" width="700">
+
+    
+
+* Major number vs. minor number
+
+  
+
+  <img src="./img/major-number-minor-number.png" alt="major-number-minor-number" width="800">
+
+  
+
+  - Major number - Identifies the device driver or device driver class that the device belongs to.
+  - Minor number - Distinguishes individual devices (i.e., device instances) within a driver class or specifies different functionalities of the same device driver.
+
+  Device driver will use the "minor number" to distinguish on which device file the read/write operations have been issued.
+
+### Character Driver (char driver)
+
+* A Linux **character device** is a special type of device file that allows  sequential character-based input or output to be processed, such as  terminals or serial ports.
+* A Linux **character driver** is a software component that enables  communication and control of character-oriented devices by providing an  interface for applications to read from and write to them character by  character.
+
+* Character driver accesses data from the device sequentially (i.e., byte-by-byte like a stream of characters) not as a chunk.
+* Sophisticated buffering strategies are usually not involved in char drivers, because when you write 1 byte, it directly goes to the device without any intermediate buffering, delayed write-back or dirty buffer management.
+* Examples: Sensors, RTC, keyboard, serial port, parallel port, etc.
+
+### Block Driver
+
+* A Linux **block device** is a type of device that allows data to be read  from or written to in fixed-sized blocks, typically used for storage  devices like hard drives or solid-state drives.
+* A Linux **block driver** is a software component that facilitates communication and control of block devices, handling the read and write  operations of fixed-sized blocks of data between the operating system and storage devices.
+* Block drivers are more complicated than char drivers because they should implement advanced buffering strategies to read from and write to the block devices, which involves disk caches.
+* Examples: Mass storage devices such as hard disks, SDMMC, NAND Flash, USB camera, etc.
+
+
+
+* 
+
+
+
+## Kernel Header File Details
+
+| Kernel functions and data structures                         | Kernel header file      |
+| ------------------------------------------------------------ | ----------------------- |
+| alloc_chrdev_region()<br>unregister_chardev_region()         | include/linux/fs.h      |
+| cdev_init()<br>cdev_add()<br>cdev_del()                      | include/linux/cdev.h    |
+| device_create()<br>class_create()<br>device_destroy()<br>class_destroy() | include/linux/device.h  |
+| copy_to_user()<br>copty_from_user()                          | include/linux/uaccess.h |
+| VFS structure definitions                                    | include/linux/fs.h      |
+
+
+
+## Device Number Representation
+
+* The device number is a combination of **major** and **minor** numbers.
+
+* In Linux kernel, `dev_t` (typedef of `u32`) type is used to represent the device number.
+
+* Out of 32 bits, 12 bits are to store major number, and the remaining 20 bits are to store minor number.
+
+* You can use the following macros to extract major and minor parts of `dev_t` type variable `device_number`:
+
+  ```c
+  int minor_no = MINOR(device_number);
+  int major_no = MAJOR(device_number);
+  ```
+
+  > `MINOR()`, `MAJOR()` macros are defined in `linux/kdev_t.h`.
+
+* Also, major and minor numbers can be turned into `device_number`:
+
+  ```c
+  MKDEV(int major, int minor);
+  ```
+
+
+
+## Kernel APIs and Utilities Used in Driver Code
+
+* Creation
+
+  ```c
+  /* Create device number */
+  alloc_chrdev_region();
+  
+  /* Make a char device registration with the VFS */
+  cdev_init();
+  cdev_add();
+  
+  /* Create device files */
+  cdev_init();
+  cdev_add();
+  ```
+
+  > When a module is loaded, these creation services must be executed and the driver must be ready to accept system calls from the user space program. So, it would make sense for this part to be taken care of by the **module initialization function**.
+
+* Deletion
+
+  ```c
+  /* Delete device number */
+  unregister_chrdev_region();
+  
+  /* Delete the registration */
+  cdev_del();
+  
+  /* Delete device files */
+  class_destroy();
+  device_destory();
+  ```
+
+  > Taken care of by the **module cleanup function**.
+
+### APIs in Detail
+
+* Dynamically register a range of char device numbers
+
+  ```c
+  int alloc_chardev_region(dev_t *dev,		/* output param for first assigned number */
+                           unsigned baseminor,/* first of the requested range of minor number */
+                           unsigned count,	/* number of minor numbers required */
+                           const char *name);	/* name of the associated device or driver */
+  ```
+
+  > `baseminor` is typically 0.
+  >
+  > `name` is NOT the device file name. It is a pointer to a string that represents the name or identifier of  the character device region being allocated. This name is typically used for identification or debugging purposes and is not directly related to the functionality of the device.
+
+  Usage:
+
+  ```c
+  /* Device number creation */
+  dev_t device_number;
+  alloc_chardev_region(&device_number, 0, 7, "eeprom");
+  ```
+
+  > Again! `eeprom` here is not the name of a device file. It is just an identifier that indicates the range of device numbers.
+
+  
+
+  <img src="./img/alloc-chardev-region.png" alt="alloc-chardev-region" width="700">
+
+  
+
+* Initialize a `cdev` structure
+
+  ```c
+  /* fs/char_dev.c */
+  
+  /**
+   * cdev_init() - initialize a cdev structure
+   * @cdev: the structure to initialize
+   * @fops: the file_operations for this device
+   *
+   * Initializes @cdev, remembering @fops, making it ready to add to the
+   * system with cdev_add().
+   */
+  void cdev_init(struct cdev *cdev, const struct file_operations *fops)
+  {
+      memset(cdev, 0, sizeof *cdev);
+      INIT_LIST_HEAD(&cdev->list);
+      kobject_init(&cdev->kobj, &ktype_cdev_default);
+      cdev->ops = fops;
+  }
+  ```
+
+  > `cdev` structure is defined in `include/linux/cdev.h`:
+  >
+  > ```c
+  > struct cdev {
+  >     struct kobject kobj;
+  >     struct module *owner;
+  >     const struct file_operations *ops;
+  >     struct list_head list;
+  >     dev_t dev;
+  >     unsigned int count;
+  > } __randomize_layout;
+  > ```
+  >
+  > > `ownder` - A pointer to the module that owns this structure; it should usually be initialized to `THIS_MODULE`. This field is used to prevent the module from being unloaded while the structure is in use. (`THIS_MODULE` is essentially a pointer and is defined in `linux/export.h` as `#define THIS_MODULE (&__this_module)`.)
+  > >
+  > > `ops` - A pointer to `file_operations` structure of the driver.
+
+  Usage:
+
+  ```c
+  /* Initialize file ops structure with driver's system call implementation methods */
+  struct file_operations eeprom_fops;
+  struct cdev eeprom_cdev;
+  cedv_init(&eeprom_cdev, &eeprom_fops);
+  ```
+
+  > If you are dealing with 10 devices, then you may have to create 10 `cdev` structures.
+
+* Add a char device to the kernel VFS
+
+  ```c
+  /* fs/char_dev.c */
+  
+  /**
+   * cdev_add() - add a char device to the system
+   * @p: the cdev structure for the device
+   * @dev: the first device number for which this device is responsible
+   * @count: the number of consecutive minor numbers corresponding to this
+   *         device
+   *
+   * cdev_add() adds the device represented by @p to the system, making it
+   * live immediately.  A negative error code is returned on failure.
+   */
+  int cdev_add(struct cdev *p, dev_t dev, unsigned count)
+  {
+      int error;
+  
+      p->dev = dev;
+      p->count = count;
+  
+      error = kobj_map(cdev_map, dev, count, NULL,
+               exact_match, exact_lock, p);
+      if (error)
+          return error;
+  
+      kobject_get(p->kobj.parent);
+  
+      return 0;
+  }
+  ```
+
+
+
+## Character Driver File Operations Methods
+
+* VFS `file_operations` structure
+
+  ```c
+  /* include/linux/fs.h */
+  struct file_operations {
+      struct module *owner;
+      loff_t (*llseek) (struct file *, loff_t, int);
+      ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
+      ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
+      ssize_t (*read_iter) (struct kiocb *, struct iov_iter *);
+      ssize_t (*write_iter) (struct kiocb *, struct iov_iter *);
+      int (*iterate) (struct file *, struct dir_context *);
+      int (*iterate_shared) (struct file *, struct dir_context *);
+      unsigned int (*poll) (struct file *, struct poll_table_struct *);
+      long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
+      long (*compat_ioctl) (struct file *, unsigned int, unsigned long);
+      int (*mmap) (struct file *, struct vm_area_struct *);
+      ...
+  } __randomize_layout;
+  ```
+
+  > Collection of various function pointers.
+
+### Summary
+
+* When device file gets created
+
+  1. Create device file using `udev`
+  2. `inode` object gets created in memory and `inode`'s `i_rdev` field is initialized with the device number
+  3. `inode` object's `i_fop` field is set to dummy default file operations (i.e., `def_chr_fops`)
+
+* When user process executes open system call
+
+  1. User invokes open system call on the device file
+  2. File object gets created
+  3. `inode`'s `i_fop` gets copied to file object's `f_op` (dummy default file operations of char device file)
+  4. Open function of dummy default file operations gets called (`chrdev_open`)
+  5. `inode` object's `i_cdev` field is initialized to `cdev` that you added during `cdev_add` (lookup happens using `inode->i_rdev` field)
+  6. `inode->cdev->fops` (this is a real file operations of the driver) gets copied to `file->f_op`
+  7. `file->f_op->open` method gets called (read open method of the driver)
+
+* `open()` system call behind the scenes:
+
+  
+
+  <img src="./img/open-system-call-behind-the-scenes.png" alt="open-system-call-behind-the-scenes" width="900">
+
+
+
+
+
+## Exercise: Pseudo Character Driver
+
+* Write a character driver to deal with a pseudo character device
+* The pseudo-device is a memory buffer of some size
+* The driver you write must support reading, writing and seeking to this driver
+* Test the driver functionality by running user-level command such as echo, dd, cat and by writing user level programs
+
+
+
+<img src="./img/pseudo-char-driver.png" alt="pseudo-char-driver" width="700">
+
+
+
+### Connection Establishment between Device File Access and the Driver
+
+1. Create device number
+   * Request the kernel to dynamically allocate the device numbers(s)
+2. Make a char device registration with the Virtual File System (VFS). (`CDEV_ADD`)
+3. Create device files
+4. Implement the driver's file operation methods for `open`, `read`, `write`, `llseek`, etc.
+
