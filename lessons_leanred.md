@@ -1505,12 +1505,34 @@ Check if the board is successfully booting from $\micro$SD card.
 
 
 
+## `inode` Object
+
+* Unix makes a clear distinction between the contents of a file and the information about a file.
+* An `inode` is a VFS data structure (`struct inode`) that holds general information about a file.
+* Whereas VFS `file` data structure (`struct file`) tracks interaction on a file opened by the user process.
+* An `inode` contains all the information needed by the filesystem to handle a file.
+* Each file has its own `inode` object, which the filesystem uses to identify the file.
+* Each `inode` object is associated with an `inode` number, which uniquely identifies the file within the file system.
+* The `inode` object is created and stored in memory when a new file (regular or device) gets created.
+
+
+
+## `file` Object
+
+* Whenever a file is opened, a file object is created in the kernel space. There will be one `file` object for every open regular/device file.
+* A `file` object stores information about the interaction between an open file and a process.
+* This information exists ONLY in kernel memory while the file is open.
+* The contents of a `file` object is NOT written back to disk unlike the case of an `inode`.
+
+
+
 ## Character Driver File Operations Methods
 
 * VFS `file_operations` structure
 
   ```c
   /* include/linux/fs.h */
+  
   struct file_operations {
       struct module *owner;
       loff_t (*llseek) (struct file *, loff_t, int);
@@ -1528,31 +1550,78 @@ Check if the board is successfully booting from $\micro$SD card.
   } __randomize_layout;
   ```
 
-  > Collection of various function pointers.
+  > Collection of various function pointers to the possible file operation methods for a regular file or a device file.
 
 ### Summary
 
 * When device file gets created
 
-  1. Create device file using `udev`
-  2. `inode` object gets created in memory and `inode`'s `i_rdev` field is initialized with the device number
-  3. `inode` object's `i_fop` field is set to dummy default file operations (i.e., `def_chr_fops`)
+  1. Create device file using `udev` (`init_special_inode()` gets called; can be found in `fs/inode.c`)
 
-* When user process executes open system call
+     ```c
+     void init_special_inode(struct inode *inode, umode_t mode, dev_t rdev)
+     {
+         inode->i_mode = mode;
+         if (S_ISCHR(mode)) {
+             inode->i_fop = &def_chr_fops;	/* dummy file operation; fs/char_dev.c */
+             inode->i_rdev = rdev;	/* initialize i_rdev with newly created device's device # */
+         } else if (S_ISBLK(mode)) {
+             inode->i_fop = &def_blk_fops;
+             inode->i_rdev = rdev;
+         } else if (S_ISFIFO(mode))
+             inode->i_fop = &pipefifo_fops;
+         else if (S_ISSOCK(mode))
+             ;   /* leave it no_open_fops */
+         else 
+             printk(KERN_DEBUG "init_special_inode: bogus i_mode (%o) for"
+                       " inode %s:%lu\n", mode, inode->i_sb->s_id,
+                       inode->i_ino);
+     }
+     ```
 
-  1. User invokes open system call on the device file
-  2. File object gets created
-  3. `inode`'s `i_fop` gets copied to file object's `f_op` (dummy default file operations of char device file)
+     > `rdev` - Device number
+     >
+     > `mode` - Device type (e.g., char device, block device, etc.)
+
+  2. `inode` object gets created in memory and `inode->i_rdev` field is initialized with the device number
+
+  3. `inode->i_fop` field is set to dummy default file operations (i.e., `def_chr_fops`)
+
+     ```c
+     /*
+      * Dummy default file-operations: the only thing this does
+      * is contain the open that then fills in the correct operations
+      * depending on the special file...
+      */
+     const struct file_operations def_chr_fops = { 
+         .open = chrdev_open,
+         .llseek = noop_llseek,
+     };
+     ```
+
+* When user process executes open system call:
+
+  1. User invokes `open()` system call on the device file
+  2. `file` object gets created (VFS opens a file by creating a new file object and linking it to the corresponding inode object.)
+  3. `inode`'s `i_fop` gets copied to file object's `f_op` (dummy default file operations of char device file `def_chr_fops`)
   4. Open function of dummy default file operations gets called (`chrdev_open`)
-  5. `inode` object's `i_cdev` field is initialized to `cdev` that you added during `cdev_add` (lookup happens using `inode->i_rdev` field)
-  6. `inode->cdev->fops` (this is a real file operations of the driver) gets copied to `file->f_op`
-  7. `file->f_op->open` method gets called (read open method of the driver)
+  5. `inode->i_cdev` field is initialized to `cdev` that you added during `cdev_add` (lookup happens using `inode->i_rdev` field)
+  6. `inode->cdev->fops` (this is a actual file operations of the driver) gets copied to `file->f_op`
+  7. `file->f_op->open` method gets called (actual `open` method of the driver)
 
-* `open()` system call behind the scenes:
+* `open()` system call behind the scenes 1:
 
   
 
-  <img src="./img/open-system-call-behind-the-scenes.png" alt="open-system-call-behind-the-scenes" width="900">
+  <img src="./img/open-system-call-behind-the-scenes-1.png" alt="open-system-call-behind-the-scenes-1" width="900">
+
+  
+
+* `open()` system call behind the scenes 2:
+
+  
+
+  <img src="./img/open-system-call-behind-the-scenes-2.png" alt="open-system-call-behind-the-scenes-2" width="900">
 
 
 
@@ -1579,3 +1648,22 @@ Check if the board is successfully booting from $\micro$SD card.
 3. Create device files
 4. Implement the driver's file operation methods for `open`, `read`, `write`, `llseek`, etc.
 
+### File Operations Methods
+
+* `open()` method
+
+  ```c
+  int pcd_open(struct inode *inode, struct file *file)
+  {
+      return 0;
+  }
+  ```
+
+  > `inode` - Pointer to an inode associated with the filename
+  >
+  > `file` - Pointer to a file object
+  >
+  > Return value:
+  >
+  > * 0 if open is successful
+  > * Negative error code if open fails
