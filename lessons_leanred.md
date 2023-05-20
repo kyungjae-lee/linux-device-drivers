@@ -1648,7 +1648,7 @@ Check if the board is successfully booting from $\micro$SD card.
 3. Create device files
 4. Implement the driver's file operation methods for `open`, `read`, `write`, `llseek`, etc.
 
-### File Operations Methods
+### File Operation Methods
 
 * Open
 
