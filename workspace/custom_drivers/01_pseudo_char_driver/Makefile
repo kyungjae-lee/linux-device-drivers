@@ -1,4 +1,4 @@
-obj-m := main.o
+obj-m := pcd.o
 ARCH=arm
 CROSS_COMPILE=arm-linux-gnueabihf-
 KERN_DIR=/home/klee/repos/linux-device-drivers/workspace/source/linux_bbb_4.14/
