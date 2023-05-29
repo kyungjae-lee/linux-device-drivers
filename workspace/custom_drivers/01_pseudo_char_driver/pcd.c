@@ -1,8 +1,8 @@
-/*
- * @ Filename		: main.c
- * @ Description	: A pseudo character deriver
- * @ Author			: Kyungjae Lee
- * @ Date created	: 05/19/2023
+/**
+ * Filename		: main.c
+ * Description	: A pseudo character deriver
+ * Author		: Kyungjae Lee
+ * Created		: 05/19/2023
  */
 
 #include <linux/module.h>
@@ -15,34 +15,89 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "%s :" fmt, __func__	/* For debugging purpose, prefix current function name in front of the string printed by pr_info()  */
 
-/*
+/**
  * Device driver specific file operation methods that handle system calls
  */
 
+/**
+ * pcd_lseek()
+ * Desc.	: Handles the llseek() system call
+ * Param.  	: @filp - pointer to file object
+ *			  @off - offset value
+ *			  @whence - origin
+ * 				- SEEK_SET: The file offset is set to @off bytes
+ *				- SEEK_CUR: The file offset is set to its current location plus @off bytes
+ * 				- SEEK_END: The file offset is set to the size of the file plus @off bytes
+ * Returns	: Newly updated file position on sucess, error code other wise
+ * Note		: Updates the file pointer by using @off and @whence information.
+ */
 loff_t pcd_lseek(struct file *filp, loff_t off, int whence)
 {
 	pr_info("lseek requested\n");
 	return 0;
 }
 
+/**
+ * pcd_read()
+ * Desc.	: Handles the read() system call from the user space
+ * Param.  	: @filp - pointer to file object
+ *            @buff - pointer to user buffer
+ *			  @count - read count given by the user
+ *			  @f_pos - pointer to current file position from which the read has to begin
+ * Returns	: The number of bytes read on success,
+ *			  0 if there is no bytes to read (EOF),
+ *			  appropriate error code (negative value) otherwise
+ * Note		: Reads a device file @count byte(s) of data from @f_pos, returns the data back to
+ *			  @buff (user), and updates @f_pos.
+ */
 ssize_t pcd_read(struct file *filp, char __user *buff, size_t count, loff_t *f_pos)
 {
 	pr_info("read requested for %zu bytes\n", count);
 	return 0;
 }
 
+/**
+ * pcd_write()
+ * Desc.	: Handles the write() system call from the user space
+ * Param.  	: @filp - pointer to file object
+ *            @buff - pointer to user buffer
+ *			  @count - read count given by the user
+ *			  @f_pos - pointer to current file position from which the read has to begin
+ * Returns	: The number of bytes written on success,
+ *			  appropriate error code (negative value) otherwise
+ * Note		: Writes a device file @count byte(s) of data from @f_pos, returns the data back to
+ *			  @buff (user) and updates @f_pos.
+ */
 ssize_t pcd_write(struct file *filp, const char __user *buff, size_t count, loff_t *f_pos)
 {
 	pr_info("write requested for %zu bytes\n", count);
 	return 0;
 }
 
+/**
+ * pcd_open()
+ * Desc.	: Handles the open() system call from the user space
+ * Param.	: @inode - pointer to inode object
+ *			  @filp - pointer to file object
+ * Returns	: 0 on success, negative error code otherwise
+ * Note		: N/A
+ */
 int pcd_open(struct inode *inode, struct file *filp)
 {
 	pr_info("open was successful\n");
 	return 0;
 }
 
+/**
+ * pcd_release()
+ * Desc.	: Handles the close() system call from the user space
+ * Param.	: @inode - pointer to inode object
+ *			  @filp - pointer to file object
+ * Returns	: 0 on success, negative error code otherwise
+ * Note		: VFS releases the file object. Called when the last reference to an
+ *			  open file is closed (i.e., when the f_count field of the file object
+ *			  becomes 0.
+ */
 int pcd_release(struct inode *inode, struct file *filp)
 {
 	pr_info("close was successful\n");
